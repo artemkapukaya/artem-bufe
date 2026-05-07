@@ -1,0 +1,14 @@
+DATABASE_URL=mysql://root:vMQpZMVIeCuhxRyxGUrHwKsjxUopWNYi@shortline.proxy.rlwy.net:43797/railway
+JWT_SECRET="bufe-ozel-sifre-2026"
+PORT=3001
+NODE_ENV=production
+OAUTH_SERVER_URL="https://artem-bufe.up.railway.app"
+VITE_API_URL="https://artem-bufe.up.railway.app/api"
+VITE_OAUTH_PORTAL_URL="https://artem-bufe.up.railway.app"
+VITE_APP_ID="artem_bufe_prod"
+VITE_ANALYTICS_ENDPOINT=/
+VITE_ANALYTICS_WEBSITE_ID=123
+VITE_REDIRECT_URI="https://artem-bufe.up.railway.app/api/oauth/callback"
+NEXT_PUBLIC_APP_URL="https://artem-bufe.up.railway.app"
+ADMIN_USERNAME=admin
+ADMIN_INITIAL_PASSWORD=ChangeMe123!
