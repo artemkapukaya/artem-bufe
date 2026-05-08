@@ -210,27 +210,20 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const [quantity, setQuantity] = useState(1);
   const [selected, setSelected] = useState<Selected[]>([]);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(() => {
+    try {
+      const favs = JSON.parse(localStorage.getItem("artem_favorites") || "[]");
+      return favs.some((f: any) => f.id === params?.id);
+    } catch { return false; }
+  });
   const stickyRef = useRef<HTMLDivElement>(null);
 
-  const [allProducts, setAllProducts] = useState(() => {
-    try {
-      const custom = JSON.parse(localStorage.getItem("artem_custom_products") || "[]");
-      return [...staticProducts, ...custom];
-    } catch { return [...staticProducts]; }
+  const { data: customProducts = [] } = trpc.adminProducts.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    staleTime: 0,
   });
 
-  useEffect(() => {
-    const load = () => {
-      try {
-        const custom = JSON.parse(localStorage.getItem("artem_custom_products") || "[]");
-        setAllProducts([...staticProducts, ...custom]);
-      } catch {}
-    };
-    window.addEventListener("artem_products_updated", load);
-    return () => window.removeEventListener("artem_products_updated", load);
-  }, []);
-
+  const allProducts = [...staticProducts, ...(customProducts as any[])];
   const product = params?.id ? allProducts.find(p => p.id === params.id) : null;
   const groups: OptionGroup[] = product
     ? ((product as any).optionGroups?.length > 0
@@ -251,7 +244,70 @@ export default function ProductDetail() {
 
   const isSelected = (gid: string, iid: string) => selected.some(s => s.groupId === gid && s.itemId === iid);
 
-  // Emoji yoksa varsayılan ata
+  // İsme göre görsel URL getir
+  const getItemImage = (item: OptionItem, groupType: string): string | null => {
+    const name = (item.label || "").toLowerCase();
+    const map: Record<string, string> = {
+      "domates": "https://img.icons8.com/color/96/tomato.png",
+      "salça": "https://img.icons8.com/color/96/tomato.png",
+      "ketçap": "https://img.icons8.com/color/96/tomato.png",
+      "soğan": "https://img.icons8.com/color/96/onion.png",
+      "marul": "https://img.icons8.com/color/96/lettuce.png",
+      "yeşil": "https://img.icons8.com/color/96/basil.png",
+      "yeşillik": "https://img.icons8.com/color/96/basil.png",
+      "salatalık": "https://img.icons8.com/color/96/cucumber.png",
+      "turşu": "https://img.icons8.com/color/96/cucumber.png",
+      "biber": "https://img.icons8.com/color/96/hot-pepper.png",
+      "acı": "https://img.icons8.com/color/96/hot-pepper.png",
+      "maydanoz": "https://img.icons8.com/color/96/basil.png",
+      "roka": "https://img.icons8.com/color/96/basil.png",
+      "dereotu": "https://img.icons8.com/color/96/basil.png",
+      "nane": "https://img.icons8.com/color/96/mint-leaves.png",
+      "mısır": "https://img.icons8.com/color/96/corn.png",
+      "havuç": "https://img.icons8.com/color/96/carrot.png",
+      "jalapeno": "https://img.icons8.com/color/96/hot-pepper.png",
+      "limon": "https://img.icons8.com/color/96/lemon.png",
+      "sarımsak": "https://img.icons8.com/color/96/garlic.png",
+      "burger": "https://img.icons8.com/color/96/sauce-boat.png",
+      "sos": "https://img.icons8.com/color/96/sauce-bottle.png",
+      "mayonez": "https://img.icons8.com/color/96/sauce-bottle.png",
+      "hardal": "https://img.icons8.com/color/96/mustard.png",
+      "ekşi": "https://img.icons8.com/color/96/wine-glass.png",
+      "nar": "https://img.icons8.com/color/96/pomegranate.png",
+      "lavaş": "https://img.icons8.com/color/96/bread.png",
+      "ekmek": "https://img.icons8.com/color/96/bread.png",
+      "peynir": "https://img.icons8.com/color/96/cheese.png",
+      "yumurta": "https://img.icons8.com/color/96/eggs.png",
+      "istemiyorum": "https://img.icons8.com/color/96/cancel.png",
+      "yok": "https://img.icons8.com/color/96/cancel.png",
+      "küçük": "https://img.icons8.com/color/96/s-mark.png",
+      "orta": "https://img.icons8.com/color/96/m-mark.png",
+      "büyük": "https://img.icons8.com/color/96/l-mark.png",
+      "250": "https://img.icons8.com/color/96/s-mark.png",
+      "500": "https://img.icons8.com/color/96/m-mark.png",
+      "750": "https://img.icons8.com/color/96/l-mark.png",
+      "1000": "https://img.icons8.com/color/96/xl-mark.png",
+      "az acılı": "https://img.icons8.com/color/96/hot-pepper.png",
+      "orta acılı": "https://img.icons8.com/color/96/hot-pepper.png",
+      "çok acılı": "https://img.icons8.com/color/96/hot-pepper.png",
+      "acısız": "https://img.icons8.com/color/96/cancel.png",
+      "kapya": "https://img.icons8.com/color/96/bell-pepper.png",
+      "pul": "https://img.icons8.com/color/96/hot-pepper.png",
+      "zeytin": "https://img.icons8.com/color/96/olive.png",
+      "mantar": "https://img.icons8.com/color/96/mushroom.png",
+      "et": "https://img.icons8.com/color/96/steak-rare.png",
+      "tavuk": "https://img.icons8.com/color/96/chicken.png",
+      "köfte": "https://img.icons8.com/color/96/meatball.png",
+    };
+    for (const [key, url] of Object.entries(map)) {
+      if (name.includes(key)) return url;
+    }
+    // Hiç eşleşme yoksa grup tipine göre varsayılan
+    if (groupType === "remove") return "https://img.icons8.com/color/96/cancel.png";
+    if (name.includes("sos") || name.includes("sauce")) return "https://img.icons8.com/color/96/sauce-bottle.png";
+    return "https://img.icons8.com/color/96/ingredients.png";
+  };
+
   const getEmoji = (item: OptionItem, groupType: string) => {
     if (item.emoji) return item.emoji;
     if (groupType === "remove") return "🚫";
@@ -318,7 +374,7 @@ export default function ProductDetail() {
         </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 pb-24">
+      <div className="max-w-5xl mx-auto px-4 pb-32">
         {/* Ürün üst kısım */}
         <div className="flex flex-col md:flex-row gap-8 mb-8">
           {/* Sol — Resim */}
@@ -331,7 +387,20 @@ export default function ProductDetail() {
                 onError={e => { e.currentTarget.src = "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=500"; }}
               />
               <button
-                onClick={() => setLiked(!liked)}
+                onClick={() => {
+                  if (!product) return;
+                  try {
+                    const favs = JSON.parse(localStorage.getItem("artem_favorites") || "[]");
+                    if (liked) {
+                      const updated = favs.filter((f: any) => f.id !== product.id);
+                      localStorage.setItem("artem_favorites", JSON.stringify(updated));
+                    } else {
+                      favs.push({ id: product.id, name: product.name, price: product.price, image: product.image });
+                      localStorage.setItem("artem_favorites", JSON.stringify(favs));
+                    }
+                    setLiked(!liked);
+                  } catch {}
+                }}
                 className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all ${liked ? "bg-red-500" : "bg-white"}`}
               >
                 <Heart size={20} className={liked ? "text-white fill-white" : "text-gray-400"} />
@@ -394,13 +463,44 @@ export default function ProductDetail() {
                   {group.name}
                   {group.required && <span className="ml-2 text-xs text-red-500 font-bold">(Zorunlu)</span>}
                 </h3>
-                <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                  group.type === "remove" ? "bg-red-100 text-red-600" :
-                  group.type === "single" ? "bg-orange-100 text-orange-600" :
-                  "bg-green-100 text-green-600"
-                }`}>
-                  {group.type === "single" ? "Tek seçim" : group.type === "remove" ? "Çıkar" : "Çoklu"}
-                </span>
+                <div className="flex items-center gap-2">
+                  {group.type === "multi" && (
+                    <div className="flex flex-col gap-1 text-[10px] font-black">
+                      <button onClick={() => setSelected(prev => prev.filter(s => s.groupId !== group.id))}
+                        className={`px-3 py-1 rounded-full transition-all ${!selected.some(s => s.groupId === group.id) ? "bg-red-500 text-white" : "bg-gray-100 text-gray-500"}`}>
+                        ✕ İSTEMİYORUM
+                      </button>
+                      <button onClick={() => {
+                        // Eğer hiç seçim yoksa, tüm default olmayan ilk item'ı seç
+                        if (!selected.some(s => s.groupId === group.id)) {
+                          const firstItem = group.items[0];
+                          if (firstItem) {
+                            setSelected(prev => [...prev, {
+                              groupId: group.id,
+                              groupName: group.name,
+                              type: group.type,
+                              itemId: firstItem.id,
+                              label: firstItem.label,
+                              emoji: firstItem.emoji,
+                              price: firstItem.priceModifier || 0,
+                            }]);
+                          }
+                        }
+                        // Zaten seçim varsa toggle açık — bir şey yapma
+                      }}
+                        className={`px-3 py-1 rounded-full transition-all ${selected.some(s => s.groupId === group.id) ? "bg-green-500 text-white" : "bg-gray-100 text-gray-500"}`}>
+                        ✓ İSTİYORUM
+                      </button>
+                    </div>
+                  )}
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                    group.type === "remove" ? "bg-red-100 text-red-600" :
+                    group.type === "single" ? "bg-orange-100 text-orange-600" :
+                    "bg-green-100 text-green-600"
+                  }`}>
+                    {group.type === "single" ? "Tek seçim" : group.type === "remove" ? "Çıkar" : "Çoklu"}
+                  </span>
+                </div>
               </div>
 
               {/* Malzemeler */}
@@ -411,12 +511,22 @@ export default function ProductDetail() {
                     <button
                       key={item.id}
                       onClick={() => toggle(group, item)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all relative ${
-                        sel
-                          ? group.type === "remove"
-                            ? "border-red-400 bg-red-50 shadow-md"
-                            : "border-red-400 bg-red-50 shadow-md"
-                          : "border-gray-200 bg-white hover:border-red-300 hover:shadow-sm"
+                      className={`${
+                        group.id === "acilık"
+                          ? `flex items-center gap-2 px-4 py-2.5 rounded-full font-black text-sm text-white transition-all shadow-md ${
+                              item.label.includes("Az") ? (sel ? "bg-green-600 scale-105" : "bg-green-500 hover:bg-green-600") :
+                              item.label.includes("Orta") ? (sel ? "bg-orange-600 scale-105" : "bg-orange-500 hover:bg-orange-600") :
+                              item.label.includes("Ekstra") || item.label.includes("Çok") ? (sel ? "bg-red-700 scale-105" : "bg-red-600 hover:bg-red-700") :
+                              item.label.includes("Acısız") ? (sel ? "bg-gray-600 scale-105" : "bg-gray-400 hover:bg-gray-500") :
+                              sel ? "bg-red-600 scale-105" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`
+                          : `flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all relative ${
+                              sel
+                                ? group.type === "remove"
+                                  ? "border-red-400 bg-red-50 shadow-md"
+                                  : "border-red-400 bg-red-50 shadow-md"
+                                : "border-gray-200 bg-white hover:border-red-300 hover:shadow-sm"
+                            }`
                       }`}
                     >
                       {/* Seçim göstergesi */}
@@ -426,49 +536,21 @@ export default function ProductDetail() {
                         </div>
                       )}
 
-                      {/* Emoji */}
-                      {(() => {
-                        const emoji = getEmoji(item, group.type);
-                        const imgMap: Record<string, string> = {
-                          "🥬": "https://img.icons8.com/color/96/lettuce.png",
-                          "🍅": "https://img.icons8.com/color/96/tomato.png",
-                          "🌽": "https://img.icons8.com/color/96/corn.png",
-                          "🌿": "https://img.icons8.com/color/96/basil.png",
-                          "🥕": "https://img.icons8.com/color/96/carrot.png",
-                          "🫑": "https://img.icons8.com/color/96/green-pepper.png",
-                          "🌱": "https://img.icons8.com/color/96/plant-under-rain.png",
-                          "🍀": "https://img.icons8.com/color/96/four-leaf-clover.png",
-                          "🔴": "https://img.icons8.com/color/96/beet.png",
-                          "🧅": "https://img.icons8.com/color/96/onion.png",
-                          "🥒": "https://img.icons8.com/color/96/cucumber.png",
-                          "🌶️": "https://img.icons8.com/color/96/hot-pepper.png",
-                          "🚫": "https://img.icons8.com/color/96/cancel--v1.png",
-                          "⛔": "https://img.icons8.com/color/96/no-entry.png",
-                          "🍷": "https://img.icons8.com/color/96/wine-glass.png",
-                          "🍋": "https://img.icons8.com/color/96/lemon.png",
-                          "🥣": "https://img.icons8.com/color/96/bowl-of-rice.png",
-                          "🔥": "https://img.icons8.com/color/96/fire-element.png",
-                          "🍇": "https://img.icons8.com/color/96/grapes.png",
-                          "🍞": "https://img.icons8.com/color/96/bread.png",
-                          "🌯": "https://img.icons8.com/color/96/burrito.png",
-                          "🥩": "https://img.icons8.com/color/96/steak-rare.png",
-                          "🧄": "https://img.icons8.com/color/96/garlic.png",
-                          "🍽️": "https://img.icons8.com/color/96/restaurant.png",
-                          "😊": "https://img.icons8.com/color/96/happy--v1.png",
-                          "🥪": "https://img.icons8.com/color/96/sandwich.png",
-                          "🫓": "https://img.icons8.com/color/96/pita-bread.png",
-                          "💛": "https://img.icons8.com/color/96/mustard.png",
-                          "🍖": "https://img.icons8.com/color/96/meat.png",
-                        };
-                        const imgSrc = imgMap[emoji];
-                        return imgSrc ? (
-                          <img src={imgSrc} alt={item.label}
+                      {/* Görsel */}
+                      {group.id !== "acilık" && (() => {
+                        const imgUrl = getItemImage(item, group.type);
+                        if (imgUrl) return (
+                          <img src={imgUrl} alt={item.label}
                             className={`w-14 h-14 object-contain ${group.type === "remove" && sel ? "opacity-30" : ""}`}
-                            onError={e => { e.currentTarget.style.display="none"; }} />
-                        ) : (
-                          <span className={`text-3xl leading-none ${group.type === "remove" && sel ? "opacity-30" : ""}`}>{emoji}</span>
+                            onError={e => { e.currentTarget.style.display = "none"; }} />
+                        );
+                        return (
+                          <span className={`text-3xl leading-none ${group.type === "remove" && sel ? "opacity-30" : ""}`}>
+                            {getEmoji(item, group.type)}
+                          </span>
                         );
                       })()}
+                      {group.id === "acilık" && <span className="text-lg">🌶️</span>}
 
                       {/* İsim */}
                       <span className={`text-[11px] font-bold text-center leading-tight ${sel ? "text-red-600" : "text-gray-700"}`}>
